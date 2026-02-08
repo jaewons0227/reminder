@@ -1,111 +1,115 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <title>얼굴 로그인</title>
+<meta charset="UTF-8">
+<title>얼굴 로그인</title>
 
-  <script src="https://unpkg.com/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script src="https://unpkg.com/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
-  <style>
-    body {
-      font-family: Arial;
-      text-align: center;
-      margin-top: 40px;
-    }
-
-    video {
-      border: 2px solid black;
-    }
-  </style>
+<style>
+body {
+  font-family: Arial;
+  text-align: center;
+  margin-top: 30px;
+}
+video {
+  border: 2px solid black;
+}
+</style>
 </head>
 
 <body>
 
-  <h2>얼굴 로그인</h2>
+<h2>얼굴 로그인</h2>
 
-  <video id="video" width="320" height="240" autoplay></video>
-  <br />
+<video id="video" width="360" height="270" autoplay muted playsinline></video>
+<br>
 
-  <button id="loginBtn" disabled>로그인</button>
+<button id="loginBtn" disabled>로그인</button>
 
-  <p id="result"></p>
+<p id="result"></p>
 
-  <script>
-    const video = document.getElementById("video");
-    const result = document.getElementById("result");
-    const loginBtn = document.getElementById("loginBtn");
+<script>
+const video = document.getElementById("video");
+const result = document.getElementById("result");
+const btn = document.getElementById("loginBtn");
 
-    let modelsLoaded = false;
+let ready = false;
 
-    async function loadModels() {
-      await Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri("./models"),
-        faceapi.nets.faceLandmark68Net.loadFromUri("./models"),
-        faceapi.nets.faceRecognitionNet.loadFromUri("./models")
-      ]);
+async function loadModels() {
+  await Promise.all([
+    faceapi.nets.tinyFaceDetector.loadFromUri("./models"),
+    faceapi.nets.faceLandmark68Net.loadFromUri("./models"),
+    faceapi.nets.faceRecognitionNet.loadFromUri("./models")
+  ]);
 
-      modelsLoaded = true;
-      loginBtn.disabled = false;
-      result.innerText = "✅ 모델 로딩 완료";
+  result.innerText = "✅ 모델 로드 완료";
+  btn.disabled = false;
+}
+
+loadModels();
+
+async function startCamera() {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: {
+      facingMode: "user",
+      width: { ideal: 640 },
+      height: { ideal: 480 }
     }
+  });
 
-    loadModels();
+  video.srcObject = stream;
 
-    async function startCamera() {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" }
-      });
+  video.onloadedmetadata = () => {
+    ready = true;
+  };
+}
 
-      video.srcObject = stream;
-    }
+startCamera();
 
-    startCamera();
+btn.onclick = async () => {
+  if (!ready) {
+    result.innerText = "📷 카메라 준비중...";
+    return;
+  }
 
-    loginBtn.onclick = async () => {
-      if (!modelsLoaded) {
-        alert("모델 로딩 중...");
-        return;
-      }
+  result.innerText = "인식 중...";
 
-      result.innerText = "인식 중...";
+  const detection = await faceapi
+    .detectSingleFace(
+      video,
+      new faceapi.TinyFaceDetectorOptions({
+        inputSize: 512,
+        scoreThreshold: 0.4
+      })
+    )
+    .withFaceLandmarks()
+    .withFaceDescriptor();
 
-      const detection = await faceapi
-        .detectSingleFace(
-          video,
-          new faceapi.TinyFaceDetectorOptions({
-            inputSize: 416,
-            scoreThreshold: 0.5
-          })
-        )
-        .withFaceLandmarks()
-        .withFaceDescriptor();
+  console.log("DETECTION:", detection);
 
-      if (!detection) {
-        result.innerText = "❌ 얼굴이 인식되지 않았습니다";
-        return;
-      }
+  if (!detection) {
+    result.innerText = "❌ 얼굴이 인식되지 않았습니다";
+    return;
+  }
 
-      const res = await fetch("https://jaewondev2.pythonanywhere.com/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          vector: Array.from(detection.descriptor)
-        })
-      });
+  const res = await fetch("https://jaewondev2.pythonanywhere.com/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      vector: Array.from(detection.descriptor)
+    })
+  });
 
-      const data = await res.json();
+  const data = await res.json();
 
-      if (data.success) {
-        result.innerText =
-          `✅ ${data.name} 님 환영합니다\n거리값: ${data.distance.toFixed(3)}`;
-      } else {
-        result.innerText =
-          `❌ 일치하는 얼굴 없음\n거리값: ${data.distance.toFixed(3)}`;
-      }
-    };
-  </script>
+  if (data.success) {
+    result.innerText = `✅ ${data.name} 로그인 성공`;
+  } else {
+    result.innerText = `❌ 매칭 실패 (거리: ${data.distance.toFixed(3)})`;
+  }
+};
+</script>
 
 </body>
 </html>
