@@ -1,40 +1,94 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
 <title>얼굴 로그인</title>
 
 <script src="https://unpkg.com/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
 <style>
 body {
+  margin: 0;
+  background: radial-gradient(circle at top, #0f172a, #020617);
+  color: white;
   font-family: Arial;
   text-align: center;
+}
+
+h1 {
+  margin-top: 40px;
+}
+
+.container {
   margin-top: 30px;
 }
+
 video {
-  border: 2px solid black;
+  width: 340px;
+  border-radius: 20px;
+  border: 3px solid #38bdf8;
+}
+
+.progress-wrap {
+  width: 60%;
+  height: 10px;
+  background: #1e293b;
+  margin: 25px auto;
+  border-radius: 8px;
+}
+
+.progress {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg,#22d3ee,#38bdf8);
+  border-radius: 8px;
+  transition: .3s;
+}
+
+.status {
+  color: #38bdf8;
+  margin-top: 15px;
+}
+
+.result {
+  font-size: 20px;
+  margin-top: 20px;
 }
 </style>
 </head>
 
 <body>
 
-<h2>얼굴 로그인</h2>
+<h1>얼굴 로그인</h1>
 
-<video id="video" width="360" height="270" autoplay muted playsinline></video>
-<br>
+<div class="container">
 
-<button id="loginBtn" disabled>로그인</button>
+  <video id="video" autoplay muted></video>
 
-<p id="result"></p>
+  <div class="status" id="status">모델 로딩중...</div>
+
+  <div class="progress-wrap">
+    <div class="progress" id="progress"></div>
+  </div>
+
+  <div id="counter">0 / 10 수집</div>
+
+  <div class="result" id="result"></div>
+
+</div>
 
 <script>
 const video = document.getElementById("video");
-const result = document.getElementById("result");
-const btn = document.getElementById("loginBtn");
+const statusText = document.getElementById("status");
+const counter = document.getElementById("counter");
+const progress = document.getElementById("progress");
+const resultBox = document.getElementById("result");
 
-let ready = false;
+const REQUIRED = 10;
+let collected = [];
+let detecting = true;
+
+// -------------------------
 
 async function loadModels() {
   await Promise.all([
@@ -43,72 +97,98 @@ async function loadModels() {
     faceapi.nets.faceRecognitionNet.loadFromUri("./models")
   ]);
 
-  result.innerText = "✅ 모델 로드 완료";
-  btn.disabled = false;
+  statusText.innerText = "카메라 시작중...";
+  startCamera();
 }
-
-loadModels();
 
 async function startCamera() {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: {
-      facingMode: "user",
-      width: { ideal: 640 },
-      height: { ideal: 480 }
-    }
-  });
-
+  const stream = await navigator.mediaDevices.getUserMedia({ video: true });
   video.srcObject = stream;
 
-  video.onloadedmetadata = () => {
-    ready = true;
-  };
+  statusText.innerText = "정면을 봐주세요";
+  startDetectLoop();
 }
 
-startCamera();
+// -------------------------
 
-btn.onclick = async () => {
-  if (!ready) {
-    result.innerText = "📷 카메라 준비중...";
-    return;
-  }
+async function startDetectLoop() {
 
-  result.innerText = "인식 중...";
+  const interval = setInterval(async () => {
 
-  const detection = await faceapi
-    .detectSingleFace(
-      video,
-      new faceapi.TinyFaceDetectorOptions({
-        inputSize: 512,
-        scoreThreshold: 0.4
-      })
-    )
-    .withFaceLandmarks()
-    .withFaceDescriptor();
+    if (!detecting || collected.length >= REQUIRED) return;
 
-  console.log("DETECTION:", detection);
+    const detection = await faceapi
+      .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({
+        inputSize: 224,
+        scoreThreshold: 0.4   // 🔥 낮춰서 인식 잘 되게
+      }))
+      .withFaceLandmarks()
+      .withFaceDescriptor();
 
-  if (!detection) {
-    result.innerText = "❌ 얼굴이 인식되지 않았습니다";
-    return;
-  }
+    if (!detection) return;
+
+    collected.push(detection.descriptor);
+
+    counter.innerText = `${collected.length} / ${REQUIRED} 수집`;
+    progress.style.width = `${(collected.length / REQUIRED) * 100}%`;
+
+    if (collected.length >= REQUIRED) {
+      clearInterval(interval);
+      detecting = false;
+      statusText.innerText = "분석중...";
+      sendLogin();
+    }
+
+  }, 800);
+}
+
+// -------------------------
+
+function averageVectors(vectors) {
+
+  const avg = new Array(vectors[0].length).fill(0);
+
+  vectors.forEach(v => {
+    v.forEach((val, i) => avg[i] += val);
+  });
+
+  return avg.map(v => v / vectors.length);
+}
+
+// -------------------------
+
+async function sendLogin() {
+
+  const avgVector = averageVectors(collected);
 
   const res = await fetch("https://jaewondev2.pythonanywhere.com/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      vector: Array.from(detection.descriptor)
+      vector: avgVector
     })
   });
 
   const data = await res.json();
 
   if (data.success) {
-    result.innerText = `✅ ${data.name} 로그인 성공`;
+
+    const percent = Math.max(0, Math.round((1 - data.distance) * 100));
+
+    resultBox.innerHTML =
+      `✅ 로그인 성공<br>${data.name}<br>${percent}% 일치`;
+
   } else {
-    result.innerText = `❌ 매칭 실패 (거리: ${data.distance.toFixed(3)})`;
+
+    const percent = Math.max(0, Math.round((1 - data.distance) * 100));
+
+    resultBox.innerHTML =
+      `❌ 실패<br>${percent}% 일치`;
+
   }
-};
+
+}
+loadModels();
 </script>
 
 </body>
