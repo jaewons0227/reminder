@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <title>얼굴 등록</title>
 
-  <!-- face-api.js CDN (Edge 차단 안 되는 버전) -->
   <script src="https://unpkg.com/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
   <style>
@@ -26,16 +25,17 @@
   <input id="name" placeholder="이름 입력" />
   <br /><br />
 
-  <video id="video" width="320" height="240" autoplay></video>
+  <video id="video" width="320" height="240" autoplay muted></video>
   <br />
 
-  <button onclick="register()">등록</button>
+  <button id="registerBtn">등록</button>
 
   <p id="result"></p>
 
   <script>
     const video = document.getElementById("video");
     const result = document.getElementById("result");
+    const registerBtn = document.getElementById("registerBtn");
 
     // 모델 로드
     Promise.all([
@@ -45,24 +45,37 @@
     ]).then(startCamera);
 
     async function startCamera() {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      video.srcObject = stream;
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+      } catch (e) {
+        alert("카메라 접근 실패: " + e.message);
+      }
     }
 
+    registerBtn.addEventListener("click", register);
+
     async function register() {
-      const name = document.getElementById("name").value;
+      const name = document.getElementById("name").value.trim();
 
       if (!name) {
         alert("이름 입력하세요");
         return;
       }
 
+      const options = new faceapi.TinyFaceDetectorOptions({
+        inputSize: 416,
+        scoreThreshold: 0.5
+      });
+
       const detection = await faceapi
-        .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+        .detectSingleFace(video, options)
         .withFaceLandmarks()
         .withFaceDescriptor();
 
-      if (!detection) {
+      console.log("detection:", detection);
+
+      if (!detection || !detection.descriptor) {
         result.innerText = "얼굴이 인식되지 않았습니다";
         return;
       }
