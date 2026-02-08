@@ -7,52 +7,133 @@
 <script src="https://unpkg.com/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
 <style>
+/* Toss 스타일 모던 화이트 테마 */
 body {
   margin: 0;
-  background: radial-gradient(circle at top, #0f172a, #020617);
-  color: white;
-  font-family: Arial;
+  background-color: #ffffff; /* 화이트 배경 */
+  color: #191f28; /* Toss 텍스트 컬러 (다크 그레이) */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
 }
 
 h1 {
-  margin-top: 40px;
+  margin-top: 60px;
+  font-size: 26px;
+  font-weight: 700;
+  color: #333d4b;
 }
 
 .container {
-  margin-top: 30px;
+  margin-top: 40px;
+  position: relative;
+  width: 320px;
+  height: 320px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
+/* 원형 비디오 */
 video {
-  width: 340px;
-  border-radius: 20px;
-  border: 3px solid #38bdf8;
+  width: 280px;
+  height: 280px;
+  border-radius: 50%; /* 원형 */
+  object-fit: cover; /* 비율 유지하며 꽉 채우기 */
+  /* border: 3px solid #38bdf8; -> 기존 테두리 제거 후 SVG로 대체 */
+  background-color: #f2f4f6; /* 비디오 로딩 전 배경색 */
+  transform: scaleX(-1); /* 거울모드 */
+  position: absolute;
+  z-index: 1;
 }
 
-.progress-wrap {
-  width: 60%;
-  height: 10px;
-  background: #1e293b;
-  margin: 25px auto;
-  border-radius: 8px;
+/* 원형 프로그레스 바 (SVG) */
+.progress-ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 320px;
+  height: 320px;
+  transform: rotate(-90deg); /* 12시 방향부터 시작 */
+  z-index: 2;
+  pointer-events: none;
 }
 
-.progress {
+.progress-ring__circle-bg {
+  stroke: #e5e8eb; /* 회색 트랙 */
+  stroke-width: 8;
+  fill: transparent;
+}
+
+.progress-ring__circle {
+  stroke: #3182f6; /* Toss Blue */
+  stroke-width: 8;
+  fill: transparent;
+  stroke-linecap: round; /* 테두리 둥글게 */
+  /* 원주율 계산 (r=150일 때): 2 * pi * 150 ≈ 942 */
+  stroke-dasharray: 942;
+  stroke-dashoffset: 942; /* 초기에는 꽉 차있지 않음 */
+  transition: stroke-dashoffset 0.5s ease-in-out;
+}
+
+/* 로딩 스피너 (요청하신 스타일) */
+.loading-overlay {
+  position: absolute;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.8);
+  width: 100%;
   height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg,#22d3ee,#38bdf8);
-  border-radius: 8px;
-  transition: .3s;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
 }
 
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid #e5e8eb; /* 연한 회색 바탕 */
+  border-top: 5px solid #3182f6; /* 파란색 포인트 */
+  border-radius: 50%; /* 둥근 모양 */
+  animation: spin 1s linear infinite;
+  box-sizing: border-box;
+  /* 모서리 둥글게 처리 (Chrome 등에서 border-top만 색상 있을 때 효과적) */
+  stroke-linecap: round; 
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 텍스트 요소들 */
 .status {
-  color: #38bdf8;
-  margin-top: 15px;
+  color: #3182f6; /* Toss Blue */
+  font-weight: 600;
+  margin-top: 30px;
+  font-size: 18px;
+}
+
+#counter {
+  margin-top: 10px;
+  color: #8b95a1; /* 연한 회색 */
+  font-size: 15px;
 }
 
 .result {
-  font-size: 20px;
+  font-size: 22px;
+  font-weight: bold;
   margin-top: 20px;
+  color: #333d4b;
+  line-height: 1.5;
+}
+
+/* 기존 직선형 바 숨김 (삭제하지 않고 숨김 처리) */
+.progress-wrap {
+  display: none; 
 }
 </style>
 </head>
@@ -62,20 +143,27 @@ video {
 <h1>얼굴 로그인</h1>
 
 <div class="container">
-
-  <video id="video" autoplay muted></video>
-
-  <div class="status" id="status">모델 로딩중...</div>
-
-  <div class="progress-wrap">
-    <div class="progress" id="progress"></div>
+  <div class="loading-overlay" id="loadingSpinner">
+    <div class="spinner"></div>
   </div>
 
-  <div id="counter">0 / 10 수집</div>
+  <svg class="progress-ring">
+    <circle class="progress-ring__circle-bg" cx="160" cy="160" r="150"/>
+    <circle class="progress-ring__circle" id="ringCircle" cx="160" cy="160" r="150"/>
+  </svg>
 
-  <div class="result" id="result"></div>
-
+  <video id="video" autoplay muted playsinline></video>
 </div>
+
+<div class="status" id="status">모델 로딩중...</div>
+
+<div class="progress-wrap">
+  <div class="progress" id="progress"></div>
+</div>
+
+<div id="counter">0 / 10 수집</div>
+
+<div class="result" id="result"></div>
 
 <script>
 const video = document.getElementById("video");
@@ -83,6 +171,21 @@ const statusText = document.getElementById("status");
 const counter = document.getElementById("counter");
 const progress = document.getElementById("progress");
 const resultBox = document.getElementById("result");
+
+// 원형 프로그레스 제어를 위한 변수
+const ringCircle = document.getElementById("ringCircle");
+const radius = ringCircle.r.baseVal.value;
+const circumference = radius * 2 * Math.PI;
+const loadingSpinner = document.getElementById("loadingSpinner");
+
+// 초기 설정: 원 둘레만큼 숨김
+ringCircle.style.strokeDasharray = `${circumference} ${circumference}`;
+ringCircle.style.strokeDashoffset = circumference;
+
+function setProgressRing(percent) {
+  const offset = circumference - (percent / 100) * circumference;
+  ringCircle.style.strokeDashoffset = offset;
+}
 
 const REQUIRED = 10;
 let collected = [];
@@ -104,6 +207,12 @@ async function loadModels() {
 async function startCamera() {
   const stream = await navigator.mediaDevices.getUserMedia({ video: true });
   video.srcObject = stream;
+
+  // 비디오가 실제로 재생될 때 스피너 숨김
+  video.onloadedmetadata = () => {
+      video.play();
+      loadingSpinner.style.display = 'none'; // 로딩 완료 후 스피너 제거
+  };
 
   statusText.innerText = "정면을 봐주세요";
   startDetectLoop();
@@ -130,12 +239,19 @@ async function startDetectLoop() {
     collected.push(detection.descriptor);
 
     counter.innerText = `${collected.length} / ${REQUIRED} 수집`;
+    
+    // 기존 코드 유지
     progress.style.width = `${(collected.length / REQUIRED) * 100}%`;
+    
+    // [추가] 원형 프로그레스 바 업데이트
+    setProgressRing((collected.length / REQUIRED) * 100);
 
     if (collected.length >= REQUIRED) {
       clearInterval(interval);
       detecting = false;
       statusText.innerText = "분석중...";
+      // 스피너 다시 표시 (분석 중 느낌)
+      loadingSpinner.style.display = 'flex';
       sendLogin();
     }
 
@@ -170,6 +286,9 @@ async function sendLogin() {
   });
 
   const data = await res.json();
+  
+  // 결과 나오면 스피너 숨김
+  loadingSpinner.style.display = 'none';
 
   if (data.success) {
 
