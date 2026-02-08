@@ -9,7 +9,7 @@
 <style>
 body {
   margin: 0;
-  background: #0f172a;
+  background: radial-gradient(circle,#020617,#020617);
   color: white;
   font-family: system-ui;
   text-align: center;
@@ -23,11 +23,21 @@ h2 {
   font-size: 26px;
 }
 
-video {
+video, canvas {
   width: 90%;
   max-width: 360px;
   border-radius: 16px;
-  border: 3px solid #38bdf8;
+}
+
+.video-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 #hint {
@@ -64,10 +74,6 @@ input {
   border: none;
   font-size: 16px;
 }
-
-.success {
-  color: #22c55e;
-}
 </style>
 </head>
 
@@ -80,9 +86,12 @@ input {
 
   <br><br>
 
-  <video id="video" autoplay muted></video>
+  <div class="video-wrap">
+    <video id="video" autoplay muted></video>
+    <canvas id="overlay"></canvas>
+  </div>
 
-  <div id="hint">얼굴을 화면 중앙에 맞춰주세요</div>
+  <div id="hint">모델 로딩중...</div>
 
   <div class="progress">
     <div class="progress-bar" id="bar"></div>
@@ -93,6 +102,7 @@ input {
 
 <script>
 const video = document.getElementById("video");
+const canvas = document.getElementById("overlay");
 const hint = document.getElementById("hint");
 const bar = document.getElementById("bar");
 const status = document.getElementById("status");
@@ -110,7 +120,7 @@ const stages = [
 
 const detectorOptions = new faceapi.TinyFaceDetectorOptions({
   inputSize: 416,
-  scoreThreshold: 0.3
+  scoreThreshold: 0.25
 });
 
 Promise.all([
@@ -122,18 +132,32 @@ Promise.all([
 async function startCamera() {
   const stream = await navigator.mediaDevices.getUserMedia({ video: true });
   video.srcObject = stream;
+
+  canvas.width = video.width || 360;
+  canvas.height = video.height || 270;
+
   scanLoop();
 }
 
 async function scanLoop() {
-  hint.innerText = stages[stage];
 
   const detection = await faceapi
     .detectSingleFace(video, detectorOptions)
     .withFaceLandmarks()
     .withFaceDescriptor();
 
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
   if (detection) {
+
+    hint.innerText = stages[stage];
+
+    const dims = faceapi.matchDimensions(canvas, video, true);
+    const resized = faceapi.resizeResults(detection, dims);
+
+    faceapi.draw.drawDetections(canvas, resized);
+
     if (collected.length < 10) {
       collected.push(Array.from(detection.descriptor));
       updateUI();
@@ -144,9 +168,12 @@ async function scanLoop() {
       register();
       return;
     }
+
+  } else {
+    hint.innerText = "❌ 얼굴을 화면 중앙에 맞춰주세요";
   }
 
-  setTimeout(scanLoop, 1000);
+  setTimeout(scanLoop, 900);
 }
 
 function updateUI() {
@@ -156,7 +183,8 @@ function updateUI() {
 }
 
 async function register() {
-  hint.innerText = "등록 중...";
+
+  hint.innerText = "서버에 등록중...";
 
   const name = document.getElementById("name").value;
 
@@ -178,7 +206,6 @@ async function register() {
 
   if (data.success) {
     hint.innerText = "✅ 등록 완료!";
-    hint.classList.add("success");
   } else {
     hint.innerText = "❌ 등록 실패";
   }
