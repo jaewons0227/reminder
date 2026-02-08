@@ -10,11 +10,13 @@
     body {
       font-family: Arial;
       text-align: center;
-      margin-top: 40px;
+      margin-top: 30px;
     }
 
     video {
       border: 2px solid black;
+      width: 90%;
+      max-width: 360px;
     }
   </style>
 </head>
@@ -25,7 +27,7 @@
   <input id="name" placeholder="이름 입력" />
   <br /><br />
 
-  <video id="video" width="320" height="240" autoplay muted></video>
+  <video id="video" autoplay playsinline muted></video>
   <br />
 
   <button id="registerBtn">등록</button>
@@ -35,9 +37,10 @@
   <script>
     const video = document.getElementById("video");
     const result = document.getElementById("result");
-    const registerBtn = document.getElementById("registerBtn");
+    const btn = document.getElementById("registerBtn");
 
-    // 모델 로드
+    let ready = false;
+
     Promise.all([
       faceapi.nets.tinyFaceDetector.loadFromUri("./models"),
       faceapi.nets.faceLandmark68Net.loadFromUri("./models"),
@@ -46,16 +49,28 @@
 
     async function startCamera() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user" }
+        });
         video.srcObject = stream;
       } catch (e) {
         alert("카메라 접근 실패: " + e.message);
       }
     }
 
-    registerBtn.addEventListener("click", register);
+    video.addEventListener("loadeddata", () => {
+      ready = true;
+      console.log("카메라 준비됨");
+    });
+
+    btn.addEventListener("click", register);
 
     async function register() {
+      if (!ready) {
+        result.innerText = "카메라 준비 중입니다...";
+        return;
+      }
+
       const name = document.getElementById("name").value.trim();
 
       if (!name) {
@@ -68,12 +83,21 @@
         scoreThreshold: 0.5
       });
 
-      const detection = await faceapi
-        .detectSingleFace(video, options)
-        .withFaceLandmarks()
-        .withFaceDescriptor();
+      // 여러 프레임 시도 (모바일 안정화)
+      let detection = null;
 
-      console.log("detection:", detection);
+      for (let i = 0; i < 3; i++) {
+        detection = await faceapi
+          .detectSingleFace(video, options)
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+
+        if (detection) break;
+
+        await new Promise(r => setTimeout(r, 300));
+      }
+
+      console.log("final detection:", detection);
 
       if (!detection || !detection.descriptor) {
         result.innerText = "얼굴이 인식되지 않았습니다";
@@ -84,7 +108,7 @@
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: name,
+          name,
           descriptor: Array.from(detection.descriptor)
         })
       });
