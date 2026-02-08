@@ -123,8 +123,6 @@ video {
   left: 50%;
   width: 320px;
   height: 320px;
-  background-color: #3182f6;
-  border-radius: 50%;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -140,9 +138,10 @@ video {
 }
 
 .success-modal img {
-  width: 120px;
-  height: 120px;
-  object-fit: contain;
+  width: 100%;   /* 모달 전체를 이미지로 채움 */
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0; /* 원형 이미지 제거 */
 }
 
 /* 텍스트 요소 */
