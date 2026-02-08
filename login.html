@@ -4,6 +4,9 @@
 <meta charset="UTF-8" />
 <title>얼굴 로그인</title>
 
+<!-- 구글 Material Icons -->
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
 <script src="https://unpkg.com/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
 <style>
@@ -132,32 +135,13 @@ video {
   opacity: 0;
   z-index: 20;
   transition: transform 0.5s ease, opacity 0.5s ease;
+  color: white;
+  font-size: 120px;
 }
 
-/* 모던 체크 아이콘 */
 .success-modal.show {
   transform: translate(-50%, -50%) scale(1);
   opacity: 1;
-}
-
-.check-icon {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  border: 5px solid #fff;
-  position: relative;
-}
-
-.check-icon::after {
-  content: '';
-  position: absolute;
-  left: 25%;
-  top: 50%;
-  width: 25%;
-  height: 10%;
-  border-left: 5px solid #fff;
-  border-bottom: 5px solid #fff;
-  transform: rotate(-45deg) translateY(-50%);
 }
 
 /* 텍스트 요소 */
@@ -207,7 +191,7 @@ video {
   <video id="video" autoplay muted playsinline></video>
   
   <div class="success-modal" id="successModal">
-    <div class="check-icon"></div>
+    <span class="material-icons">check_circle</span>
   </div>
 </div>
 
@@ -322,10 +306,8 @@ async function sendLogin() {
     const percent = Math.max(0, Math.round((1 - data.distance) * 100));
     resultBox.innerHTML = `✅ 로그인 성공<br>${data.name}<br>${percent}% 일치`;
 
-    // 성공 모달 표시
     successModal.classList.add('show');
 
-    // 카메라 종료
     if (video.srcObject) {
       video.srcObject.getTracks().forEach(track => track.stop());
     }
@@ -334,11 +316,9 @@ async function sendLogin() {
     const percent = Math.max(0, Math.round((1 - data.distance) * 100));
     resultBox.innerHTML = `❌ 실패<br>${percent}% 일치<br>인증 실패 - 얼굴 불일치`;
 
-    // 스피너 색상 빨간색
     ringCircle.style.stroke = '#b50000';
     spinnerDivs.forEach(d => d.style.borderColor = '#b50000 transparent transparent transparent');
 
-    // 진행 초기화 후 2초 뒤 재시작
     setTimeout(() => {
       startDetectLoop();
     }, 2000);
