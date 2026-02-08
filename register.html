@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8" />
+<meta charset="UTF-8">
 <title>얼굴 등록</title>
 
 <script src="https://unpkg.com/face-api.js@0.22.2/dist/face-api.min.js"></script>
@@ -15,12 +15,11 @@ body {
   text-align: center;
 }
 
-.container {
-  padding: 20px;
-}
+.container { padding: 20px; }
 
-h2 {
-  font-size: 26px;
+.video-wrap {
+  position: relative;
+  display: inline-block;
 }
 
 video, canvas {
@@ -29,21 +28,10 @@ video, canvas {
   border-radius: 16px;
 }
 
-.video-wrap {
-  position: relative;
-  display: inline-block;
-}
-
 canvas {
   position: absolute;
   top: 0;
   left: 0;
-}
-
-#hint {
-  margin-top: 15px;
-  font-size: 18px;
-  color: #38bdf8;
 }
 
 .progress {
@@ -61,19 +49,7 @@ canvas {
   background: linear-gradient(90deg,#38bdf8,#22c55e);
 }
 
-#status {
-  margin-top: 10px;
-  font-size: 14px;
-}
-
-input {
-  width: 80%;
-  max-width: 300px;
-  padding: 12px;
-  border-radius: 12px;
-  border: none;
-  font-size: 16px;
-}
+#hint { margin-top: 12px; color:#38bdf8; }
 </style>
 </head>
 
@@ -82,12 +58,12 @@ input {
 <div class="container">
   <h2>얼굴 등록</h2>
 
-  <input id="name" placeholder="이름 입력"/>
+  <input id="name" placeholder="이름 입력" style="padding:12px;width:80%;max-width:300px;border-radius:12px;border:none;"/>
 
   <br><br>
 
   <div class="video-wrap">
-    <video id="video" autoplay muted></video>
+    <video id="video" autoplay muted playsinline></video>
     <canvas id="overlay"></canvas>
   </div>
 
@@ -108,19 +84,10 @@ const bar = document.getElementById("bar");
 const status = document.getElementById("status");
 
 let collected = [];
-let stage = 0;
-
-const stages = [
-  "정면을 봐주세요",
-  "고개를 왼쪽으로 돌려주세요",
-  "고개를 오른쪽으로 돌려주세요",
-  "조금 가까이 오세요",
-  "조금 멀어지세요"
-];
 
 const detectorOptions = new faceapi.TinyFaceDetectorOptions({
   inputSize: 416,
-  scoreThreshold: 0.25
+  scoreThreshold: 0.2
 });
 
 Promise.all([
@@ -130,13 +97,21 @@ Promise.all([
 ]).then(startCamera);
 
 async function startCamera() {
-  const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "user" }
+  });
+
   video.srcObject = stream;
 
-  canvas.width = video.width || 360;
-  canvas.height = video.height || 270;
+  video.onloadedmetadata = () => {
+    video.play();
 
-  scanLoop();
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    scanLoop();
+  };
 }
 
 async function scanLoop() {
@@ -151,7 +126,7 @@ async function scanLoop() {
 
   if (detection) {
 
-    hint.innerText = stages[stage];
+    hint.innerText = "✅ 얼굴 감지됨";
 
     const dims = faceapi.matchDimensions(canvas, video, true);
     const resized = faceapi.resizeResults(detection, dims);
@@ -161,7 +136,6 @@ async function scanLoop() {
     if (collected.length < 10) {
       collected.push(Array.from(detection.descriptor));
       updateUI();
-      stage = Math.floor(collected.length / 2);
     }
 
     if (collected.length === 10) {
@@ -173,31 +147,26 @@ async function scanLoop() {
     hint.innerText = "❌ 얼굴을 화면 중앙에 맞춰주세요";
   }
 
-  setTimeout(scanLoop, 900);
+  setTimeout(scanLoop, 700);
 }
 
 function updateUI() {
-  const percent = (collected.length / 10) * 100;
+  const percent = collected.length / 10 * 100;
   bar.style.width = percent + "%";
   status.innerText = `${collected.length} / 10 수집`;
 }
 
 async function register() {
 
-  hint.innerText = "서버에 등록중...";
+  hint.innerText = "서버 등록중...";
 
   const name = document.getElementById("name").value;
-
-  if (!name) {
-    alert("이름 입력하세요");
-    return;
-  }
 
   const res = await fetch("https://jaewondev2.pythonanywhere.com/register", {
     method: "POST",
     headers: {"Content-Type":"application/json"},
     body: JSON.stringify({
-      name: name,
+      name,
       vectors: collected
     })
   });
@@ -207,7 +176,7 @@ async function register() {
   if (data.success) {
     hint.innerText = "✅ 등록 완료!";
   } else {
-    hint.innerText = "❌ 등록 실패";
+    hint.innerText = "❌ 실패: " + data.error;
   }
 }
 </script>
