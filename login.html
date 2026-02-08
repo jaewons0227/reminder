@@ -7,11 +7,10 @@
 <script src="https://unpkg.com/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
 <style>
-/* Toss 스타일 모던 화이트 테마 */
 body {
   margin: 0;
-  background-color: #ffffff; /* 화이트 배경 */
-  color: #191f28; /* Toss 텍스트 컬러 (다크 그레이) */
+  background-color: #ffffff;
+  color: #191f28;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   text-align: center;
   display: flex;
@@ -37,53 +36,49 @@ h1 {
   align-items: center;
 }
 
-/* 원형 비디오 */
 video {
   width: 280px;
   height: 280px;
-  border-radius: 50%; /* 원형 */
-  object-fit: cover; /* 비율 유지하며 꽉 채우기 */
-  /* border: 3px solid #38bdf8; -> 기존 테두리 제거 후 SVG로 대체 */
-  background-color: #f2f4f6; /* 비디오 로딩 전 배경색 */
-  transform: scaleX(-1); /* 거울모드 */
+  border-radius: 50%;
+  object-fit: cover;
+  background-color: #f2f4f6;
+  transform: scaleX(-1);
   position: absolute;
   z-index: 1;
 }
 
-/* 원형 프로그레스 바 (SVG) */
 .progress-ring {
   position: absolute;
   top: 0;
   left: 0;
   width: 320px;
   height: 320px;
-  transform: rotate(-90deg); /* 12시 방향부터 시작 */
+  transform: rotate(-90deg);
   z-index: 2;
   pointer-events: none;
 }
 
 .progress-ring__circle-bg {
-  stroke: #e5e8eb; /* 회색 트랙 */
+  stroke: #e5e8eb;
   stroke-width: 8;
   fill: transparent;
 }
 
 .progress-ring__circle {
-  stroke: #3182f6; /* Toss Blue */
+  stroke: #3182f6;
   stroke-width: 8;
   fill: transparent;
-  stroke-linecap: round; /* 테두리 둥글게 */
-  /* 원주율 계산 (r=150일 때): 2 * pi * 150 ≈ 942 */
+  stroke-linecap: round;
   stroke-dasharray: 942;
-  stroke-dashoffset: 942; /* 초기에는 꽉 차있지 않음 */
+  stroke-dashoffset: 942;
   transition: stroke-dashoffset 0.5s ease-in-out;
 }
 
-/* 로딩 스피너 (요청하신 스타일) */
+/* 구글 스타일 로딩 스피너 */
 .loading-overlay {
   position: absolute;
   z-index: 10;
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255,255,255,0.7);
   width: 100%;
   height: 100%;
   display: flex;
@@ -92,26 +87,73 @@ video {
   border-radius: 50%;
 }
 
-.spinner {
+.google-spinner {
+  display: inline-block;
   width: 50px;
   height: 50px;
-  border: 5px solid #e5e8eb; /* 연한 회색 바탕 */
-  border-top: 5px solid #3182f6; /* 파란색 포인트 */
-  border-radius: 50%; /* 둥근 모양 */
-  animation: spin 1s linear infinite;
-  box-sizing: border-box;
-  /* 모서리 둥글게 처리 (Chrome 등에서 border-top만 색상 있을 때 효과적) */
-  stroke-linecap: round; 
+  position: relative;
 }
 
-@keyframes spin {
+.google-spinner div {
+  box-sizing: border-box;
+  display: block;
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  margin: 0;
+  border: 5px solid #3182f6;
+  border-radius: 50%;
+  animation: google-spin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  border-color: #3182f6 transparent transparent transparent;
+}
+
+.google-spinner div:nth-child(1) {
+  animation-delay: -0.45s;
+}
+.google-spinner div:nth-child(2) {
+  animation-delay: -0.3s;
+}
+.google-spinner div:nth-child(3) {
+  animation-delay: -0.15s;
+}
+
+@keyframes google-spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
 
-/* 텍스트 요소들 */
+/* 성공 모달 */
+.success-modal {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 280px;
+  height: 280px;
+  background-color: #3182f6;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  z-index: 20;
+  transition: transform 0.5s ease, opacity 0.5s ease;
+}
+
+.success-modal.show {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+
+.success-modal svg {
+  width: 100px;
+  height: 100px;
+  fill: #ffffff;
+}
+
+/* 텍스트 요소 */
 .status {
-  color: #3182f6; /* Toss Blue */
+  color: #3182f6;
   font-weight: 600;
   margin-top: 30px;
   font-size: 18px;
@@ -119,7 +161,7 @@ video {
 
 #counter {
   margin-top: 10px;
-  color: #8b95a1; /* 연한 회색 */
+  color: #8b95a1;
   font-size: 15px;
 }
 
@@ -131,9 +173,8 @@ video {
   line-height: 1.5;
 }
 
-/* 기존 직선형 바 숨김 (삭제하지 않고 숨김 처리) */
 .progress-wrap {
-  display: none; 
+  display: none;
 }
 </style>
 </head>
@@ -144,7 +185,9 @@ video {
 
 <div class="container">
   <div class="loading-overlay" id="loadingSpinner">
-    <div class="spinner"></div>
+    <div class="google-spinner">
+      <div></div><div></div><div></div><div></div>
+    </div>
   </div>
 
   <svg class="progress-ring">
@@ -153,16 +196,21 @@ video {
   </svg>
 
   <video id="video" autoplay muted playsinline></video>
+  
+  <div class="success-modal" id="successModal">
+    <svg viewBox="0 0 512 512">
+      <path d="M173.898 439.404l-166.4-166.4c-12.496-12.496-12.496-32.758 
+      0-45.254s32.758-12.497 45.254 0L192 312.69 458.248 46.443c12.496-12.496
+      32.758-12.496 45.254 0s12.496 32.758 0 45.254L192 439.404z"/>
+    </svg>
+  </div>
 </div>
 
-<div class="status" id="status">모델 로딩중...</div>
-
+<div class="status" id="status"></div>
 <div class="progress-wrap">
   <div class="progress" id="progress"></div>
 </div>
-
 <div id="counter">0 / 10 수집</div>
-
 <div class="result" id="result"></div>
 
 <script>
@@ -172,13 +220,12 @@ const counter = document.getElementById("counter");
 const progress = document.getElementById("progress");
 const resultBox = document.getElementById("result");
 
-// 원형 프로그레스 제어를 위한 변수
 const ringCircle = document.getElementById("ringCircle");
 const radius = ringCircle.r.baseVal.value;
 const circumference = radius * 2 * Math.PI;
 const loadingSpinner = document.getElementById("loadingSpinner");
+const successModal = document.getElementById("successModal");
 
-// 초기 설정: 원 둘레만큼 숨김
 ringCircle.style.strokeDasharray = `${circumference} ${circumference}`;
 ringCircle.style.strokeDashoffset = circumference;
 
@@ -191,16 +238,13 @@ const REQUIRED = 10;
 let collected = [];
 let detecting = true;
 
-// -------------------------
-
 async function loadModels() {
   await Promise.all([
-    faceapi.nets.tinyFaceDetector.loadFromUri("./models"),
+    faceapi.nets.ssdMobilenetv1.loadFromUri("./models"),
     faceapi.nets.faceLandmark68Net.loadFromUri("./models"),
     faceapi.nets.faceRecognitionNet.loadFromUri("./models")
   ]);
 
-  statusText.innerText = "카메라 시작중...";
   startCamera();
 }
 
@@ -208,29 +252,20 @@ async function startCamera() {
   const stream = await navigator.mediaDevices.getUserMedia({ video: true });
   video.srcObject = stream;
 
-  // 비디오가 실제로 재생될 때 스피너 숨김
   video.onloadedmetadata = () => {
       video.play();
-      loadingSpinner.style.display = 'none'; // 로딩 완료 후 스피너 제거
+      loadingSpinner.style.display = 'none';
   };
 
-  statusText.innerText = "정면을 봐주세요";
   startDetectLoop();
 }
 
-// -------------------------
-
 async function startDetectLoop() {
-
   const interval = setInterval(async () => {
-
     if (!detecting || collected.length >= REQUIRED) return;
 
     const detection = await faceapi
-      .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({
-        inputSize: 224,
-        scoreThreshold: 0.4   // 🔥 낮춰서 인식 잘 되게
-      }))
+      .detectSingleFace(video)
       .withFaceLandmarks()
       .withFaceDescriptor();
 
@@ -239,74 +274,50 @@ async function startDetectLoop() {
     collected.push(detection.descriptor);
 
     counter.innerText = `${collected.length} / ${REQUIRED} 수집`;
-    
-    // 기존 코드 유지
     progress.style.width = `${(collected.length / REQUIRED) * 100}%`;
-    
-    // [추가] 원형 프로그레스 바 업데이트
     setProgressRing((collected.length / REQUIRED) * 100);
 
     if (collected.length >= REQUIRED) {
       clearInterval(interval);
       detecting = false;
-      statusText.innerText = "분석중...";
-      // 스피너 다시 표시 (분석 중 느낌)
       loadingSpinner.style.display = 'flex';
       sendLogin();
     }
-
   }, 800);
 }
 
-// -------------------------
-
 function averageVectors(vectors) {
-
   const avg = new Array(vectors[0].length).fill(0);
-
   vectors.forEach(v => {
     v.forEach((val, i) => avg[i] += val);
   });
-
   return avg.map(v => v / vectors.length);
 }
 
-// -------------------------
-
 async function sendLogin() {
-
   const avgVector = averageVectors(collected);
 
   const res = await fetch("https://jaewondev2.pythonanywhere.com/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      vector: avgVector
-    })
+    body: JSON.stringify({ vector: avgVector })
   });
 
   const data = await res.json();
-  
-  // 결과 나오면 스피너 숨김
   loadingSpinner.style.display = 'none';
 
-  if (data.success) {
-
+  if (data.success && data.distance <= 0.25) {
     const percent = Math.max(0, Math.round((1 - data.distance) * 100));
+    resultBox.innerHTML = `✅ 로그인 성공<br>${data.name}<br>${percent}% 일치`;
 
-    resultBox.innerHTML =
-      `✅ 로그인 성공<br>${data.name}<br>${percent}% 일치`;
-
+    // 성공 모달 표시
+    successModal.classList.add('show');
   } else {
-
     const percent = Math.max(0, Math.round((1 - data.distance) * 100));
-
-    resultBox.innerHTML =
-      `❌ 실패<br>${percent}% 일치`;
-
+    resultBox.innerHTML = `❌ 실패<br>${percent}% 일치<br>인증 실패 - 얼굴 불일치`;
   }
-
 }
+
 loadModels();
 </script>
 
