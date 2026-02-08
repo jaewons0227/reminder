@@ -4,9 +4,6 @@
 <meta charset="UTF-8" />
 <title>얼굴 로그인</title>
 
-<!-- 구글 Material Icons -->
-<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-
 <script src="https://unpkg.com/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
 <style>
@@ -124,8 +121,8 @@ video {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 280px;
-  height: 280px;
+  width: 320px;
+  height: 320px;
   background-color: #3182f6;
   border-radius: 50%;
   display: flex;
@@ -134,14 +131,18 @@ video {
   transform: translate(-50%, -50%) scale(0);
   opacity: 0;
   z-index: 20;
-  transition: transform 0.5s ease, opacity 0.5s ease;
-  color: white;
-  font-size: 120px;
+  transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55), opacity 0.5s ease;
 }
 
 .success-modal.show {
   transform: translate(-50%, -50%) scale(1);
   opacity: 1;
+}
+
+.success-modal img {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
 }
 
 /* 텍스트 요소 */
@@ -191,7 +192,7 @@ video {
   <video id="video" autoplay muted playsinline></video>
   
   <div class="success-modal" id="successModal">
-    <span class="material-icons">check_circle</span>
+    <img src="https://cdn-icons-png.flaticon.com/256/10337/10337354.png" alt="success">
   </div>
 </div>
 
@@ -204,7 +205,6 @@ video {
 
 <script>
 const video = document.getElementById("video");
-const statusText = document.getElementById("status");
 const counter = document.getElementById("counter");
 const progress = document.getElementById("progress");
 const resultBox = document.getElementById("result");
