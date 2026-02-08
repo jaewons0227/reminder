@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>얼굴 등록</title>
+
+  <!-- face-api.js CDN (Edge 차단 안 되는 버전) -->
+  <script src="https://unpkg.com/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial;
+      text-align: center;
+      margin-top: 40px;
+    }
+
+    video {
+      border: 2px solid black;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>얼굴 등록</h2>
+
+  <input id="name" placeholder="이름 입력" />
+  <br /><br />
+
+  <video id="video" width="320" height="240" autoplay></video>
+  <br />
+
+  <button onclick="register()">등록</button>
+
+  <p id="result"></p>
+
+  <script>
+    const video = document.getElementById("video");
+    const result = document.getElementById("result");
+
+    // 모델 로드
+    Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri("./models"),
+      faceapi.nets.faceLandmark68Net.loadFromUri("./models"),
+      faceapi.nets.faceRecognitionNet.loadFromUri("./models")
+    ]).then(startCamera);
+
+    async function startCamera() {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      video.srcObject = stream;
+    }
+
+    async function register() {
+      const name = document.getElementById("name").value;
+
+      if (!name) {
+        alert("이름 입력하세요");
+        return;
+      }
+
+      const detection = await faceapi
+        .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+        .withFaceLandmarks()
+        .withFaceDescriptor();
+
+      if (!detection) {
+        result.innerText = "얼굴이 인식되지 않았습니다";
+        return;
+      }
+
+      const res = await fetch("https://jaewondev2.pythonanywhere.com/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name,
+          descriptor: Array.from(detection.descriptor)
+        })
+      });
+
+      const data = await res.json();
+      result.innerText = JSON.stringify(data);
+    }
+  </script>
+</body>
+</html>
