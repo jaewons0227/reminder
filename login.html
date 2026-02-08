@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <title>얼굴 로그인</title>
 
+  <!-- face-api.js -->
   <script src="https://unpkg.com/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
   <style>
@@ -16,10 +17,17 @@
     video {
       border: 2px solid black;
     }
+
+    button {
+      font-size: 16px;
+      padding: 10px 20px;
+      margin-top: 10px;
+    }
   </style>
 </head>
 
 <body>
+
   <h2>얼굴 로그인</h2>
 
   <video id="video" width="320" height="240" autoplay></video>
@@ -33,6 +41,7 @@
     const video = document.getElementById("video");
     const result = document.getElementById("result");
 
+    // 모델 로드
     Promise.all([
       faceapi.nets.tinyFaceDetector.loadFromUri("./models"),
       faceapi.nets.faceLandmark68Net.loadFromUri("./models"),
@@ -45,27 +54,39 @@
     }
 
     async function login() {
+      result.innerText = "인식 중...";
+
       const detection = await faceapi
         .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
         .withFaceLandmarks()
         .withFaceDescriptor();
 
       if (!detection) {
-        result.innerText = "얼굴이 인식되지 않았습니다";
+        result.innerText = "❌ 얼굴이 인식되지 않았습니다";
         return;
       }
 
       const res = await fetch("https://jaewondev2.pythonanywhere.com/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({
-          descriptor: Array.from(detection.descriptor)
+          vector: Array.from(detection.descriptor)
         })
       });
 
       const data = await res.json();
-      result.innerText = JSON.stringify(data);
+
+      if (data.success) {
+        result.innerText =
+          `✅ ${data.name} 님 환영합니다\n거리값: ${data.distance.toFixed(3)}`;
+      } else {
+        result.innerText =
+          `❌ 일치하는 얼굴 없음\n거리값: ${data.distance.toFixed(3)}`;
+      }
     }
   </script>
+
 </body>
 </html>
