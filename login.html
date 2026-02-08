@@ -71,10 +71,10 @@ video {
   stroke-linecap: round;
   stroke-dasharray: 942;
   stroke-dashoffset: 942;
-  transition: stroke-dashoffset 0.5s ease-in-out;
+  transition: stroke-dashoffset 0.5s ease-in-out, stroke 0.5s ease-in-out;
 }
 
-/* 구글 스타일 로딩 스피너 */
+/* 구글 스타일 스피너 */
 .loading-overlay {
   position: absolute;
   z-index: 10;
@@ -107,15 +107,9 @@ video {
   border-color: #3182f6 transparent transparent transparent;
 }
 
-.google-spinner div:nth-child(1) {
-  animation-delay: -0.45s;
-}
-.google-spinner div:nth-child(2) {
-  animation-delay: -0.3s;
-}
-.google-spinner div:nth-child(3) {
-  animation-delay: -0.15s;
-}
+.google-spinner div:nth-child(1) { animation-delay: -0.45s; }
+.google-spinner div:nth-child(2) { animation-delay: -0.3s; }
+.google-spinner div:nth-child(3) { animation-delay: -0.15s; }
 
 @keyframes google-spin {
   0% { transform: rotate(0deg); }
@@ -140,15 +134,30 @@ video {
   transition: transform 0.5s ease, opacity 0.5s ease;
 }
 
+/* 모던 체크 아이콘 */
 .success-modal.show {
   transform: translate(-50%, -50%) scale(1);
   opacity: 1;
 }
 
-.success-modal svg {
+.check-icon {
   width: 100px;
   height: 100px;
-  fill: #ffffff;
+  border-radius: 50%;
+  border: 5px solid #fff;
+  position: relative;
+}
+
+.check-icon::after {
+  content: '';
+  position: absolute;
+  left: 25%;
+  top: 50%;
+  width: 25%;
+  height: 10%;
+  border-left: 5px solid #fff;
+  border-bottom: 5px solid #fff;
+  transform: rotate(-45deg) translateY(-50%);
 }
 
 /* 텍스트 요소 */
@@ -198,11 +207,7 @@ video {
   <video id="video" autoplay muted playsinline></video>
   
   <div class="success-modal" id="successModal">
-    <svg viewBox="0 0 512 512">
-      <path d="M173.898 439.404l-166.4-166.4c-12.496-12.496-12.496-32.758 
-      0-45.254s32.758-12.497 45.254 0L192 312.69 458.248 46.443c12.496-12.496
-      32.758-12.496 45.254 0s12.496 32.758 0 45.254L192 439.404z"/>
-    </svg>
+    <div class="check-icon"></div>
   </div>
 </div>
 
@@ -225,6 +230,7 @@ const radius = ringCircle.r.baseVal.value;
 const circumference = radius * 2 * Math.PI;
 const loadingSpinner = document.getElementById("loadingSpinner");
 const successModal = document.getElementById("successModal");
+const spinnerDivs = document.querySelectorAll('.google-spinner div');
 
 ringCircle.style.strokeDasharray = `${circumference} ${circumference}`;
 ringCircle.style.strokeDashoffset = circumference;
@@ -237,6 +243,7 @@ function setProgressRing(percent) {
 const REQUIRED = 10;
 let collected = [];
 let detecting = true;
+let interval;
 
 async function loadModels() {
   await Promise.all([
@@ -244,7 +251,6 @@ async function loadModels() {
     faceapi.nets.faceLandmark68Net.loadFromUri("./models"),
     faceapi.nets.faceRecognitionNet.loadFromUri("./models")
   ]);
-
   startCamera();
 }
 
@@ -260,8 +266,15 @@ async function startCamera() {
   startDetectLoop();
 }
 
-async function startDetectLoop() {
-  const interval = setInterval(async () => {
+function startDetectLoop() {
+  detecting = true;
+  collected = [];
+  counter.innerText = `0 / ${REQUIRED} 수집`;
+  setProgressRing(0);
+  ringCircle.style.stroke = '#3182f6';
+  spinnerDivs.forEach(d => d.style.borderColor = '#3182f6 transparent transparent transparent');
+
+  interval = setInterval(async () => {
     if (!detecting || collected.length >= REQUIRED) return;
 
     const detection = await faceapi
@@ -274,7 +287,6 @@ async function startDetectLoop() {
     collected.push(detection.descriptor);
 
     counter.innerText = `${collected.length} / ${REQUIRED} 수집`;
-    progress.style.width = `${(collected.length / REQUIRED) * 100}%`;
     setProgressRing((collected.length / REQUIRED) * 100);
 
     if (collected.length >= REQUIRED) {
@@ -312,9 +324,24 @@ async function sendLogin() {
 
     // 성공 모달 표시
     successModal.classList.add('show');
+
+    // 카메라 종료
+    if (video.srcObject) {
+      video.srcObject.getTracks().forEach(track => track.stop());
+    }
+
   } else {
     const percent = Math.max(0, Math.round((1 - data.distance) * 100));
     resultBox.innerHTML = `❌ 실패<br>${percent}% 일치<br>인증 실패 - 얼굴 불일치`;
+
+    // 스피너 색상 빨간색
+    ringCircle.style.stroke = '#b50000';
+    spinnerDivs.forEach(d => d.style.borderColor = '#b50000 transparent transparent transparent');
+
+    // 진행 초기화 후 2초 뒤 재시작
+    setTimeout(() => {
+      startDetectLoop();
+    }, 2000);
   }
 }
 
