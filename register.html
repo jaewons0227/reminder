@@ -1,121 +1,185 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <title>얼굴 등록</title>
+<meta charset="UTF-8" />
+<title>얼굴 등록</title>
 
-  <script src="https://unpkg.com/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script src="https://unpkg.com/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
-  <style>
-    body {
-      font-family: Arial;
-      text-align: center;
-      margin-top: 30px;
-    }
+<style>
+body {
+  margin: 0;
+  background: #0f172a;
+  color: white;
+  font-family: system-ui;
+  text-align: center;
+}
 
-    video {
-      border: 2px solid black;
-      width: 90%;
-      max-width: 360px;
-    }
-  </style>
+.container {
+  padding: 20px;
+}
+
+h2 {
+  font-size: 26px;
+}
+
+video {
+  width: 90%;
+  max-width: 360px;
+  border-radius: 16px;
+  border: 3px solid #38bdf8;
+}
+
+#hint {
+  margin-top: 15px;
+  font-size: 18px;
+  color: #38bdf8;
+}
+
+.progress {
+  margin: 15px auto;
+  width: 80%;
+  height: 10px;
+  background: #334155;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg,#38bdf8,#22c55e);
+}
+
+#status {
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+input {
+  width: 80%;
+  max-width: 300px;
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  font-size: 16px;
+}
+
+.success {
+  color: #22c55e;
+}
+</style>
 </head>
 
 <body>
+
+<div class="container">
   <h2>얼굴 등록</h2>
 
-  <input id="name" placeholder="이름 입력" />
-  <br /><br />
+  <input id="name" placeholder="이름 입력"/>
 
-  <video id="video" autoplay playsinline muted></video>
-  <br />
+  <br><br>
 
-  <button id="registerBtn">등록</button>
+  <video id="video" autoplay muted></video>
 
-  <p id="result"></p>
+  <div id="hint">얼굴을 화면 중앙에 맞춰주세요</div>
 
-  <script>
-    const video = document.getElementById("video");
-    const result = document.getElementById("result");
-    const btn = document.getElementById("registerBtn");
+  <div class="progress">
+    <div class="progress-bar" id="bar"></div>
+  </div>
 
-    let ready = false;
+  <div id="status">0 / 10 수집</div>
+</div>
 
-    Promise.all([
-      faceapi.nets.tinyFaceDetector.loadFromUri("./models"),
-      faceapi.nets.faceLandmark68Net.loadFromUri("./models"),
-      faceapi.nets.faceRecognitionNet.loadFromUri("./models")
-    ]).then(startCamera);
+<script>
+const video = document.getElementById("video");
+const hint = document.getElementById("hint");
+const bar = document.getElementById("bar");
+const status = document.getElementById("status");
 
-    async function startCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user" }
-        });
-        video.srcObject = stream;
-      } catch (e) {
-        alert("카메라 접근 실패: " + e.message);
-      }
+let collected = [];
+let stage = 0;
+
+const stages = [
+  "정면을 봐주세요",
+  "고개를 왼쪽으로 돌려주세요",
+  "고개를 오른쪽으로 돌려주세요",
+  "조금 가까이 오세요",
+  "조금 멀어지세요"
+];
+
+Promise.all([
+  faceapi.nets.tinyFaceDetector.loadFromUri("./models"),
+  faceapi.nets.faceLandmark68Net.loadFromUri("./models"),
+  faceapi.nets.faceRecognitionNet.loadFromUri("./models")
+]).then(startCamera);
+
+async function startCamera() {
+  const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+  video.srcObject = stream;
+  scanLoop();
+}
+
+async function scanLoop() {
+  hint.innerText = stages[stage];
+
+  const detection = await faceapi
+    .detectSingleFace(video,new faceapi.TinyFaceDetectorOptions())
+    .withFaceLandmarks()
+    .withFaceDescriptor();
+
+  if (detection) {
+    if (collected.length < 10) {
+      collected.push(Array.from(detection.descriptor));
+      updateUI();
+
+      stage = Math.floor(collected.length / 2);
     }
 
-    video.addEventListener("loadeddata", () => {
-      ready = true;
-      console.log("카메라 준비됨");
-    });
-
-    btn.addEventListener("click", register);
-
-    async function register() {
-      if (!ready) {
-        result.innerText = "카메라 준비 중입니다...";
-        return;
-      }
-
-      const name = document.getElementById("name").value.trim();
-
-      if (!name) {
-        alert("이름 입력하세요");
-        return;
-      }
-
-      const options = new faceapi.TinyFaceDetectorOptions({
-        inputSize: 416,
-        scoreThreshold: 0.5
-      });
-
-      // 여러 프레임 시도 (모바일 안정화)
-      let detection = null;
-
-      for (let i = 0; i < 3; i++) {
-        detection = await faceapi
-          .detectSingleFace(video, options)
-          .withFaceLandmarks()
-          .withFaceDescriptor();
-
-        if (detection) break;
-
-        await new Promise(r => setTimeout(r, 300));
-      }
-
-      console.log("final detection:", detection);
-
-      if (!detection || !detection.descriptor) {
-        result.innerText = "얼굴이 인식되지 않았습니다";
-        return;
-      }
-
-      const res = await fetch("https://jaewondev2.pythonanywhere.com/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          descriptor: Array.from(detection.descriptor)
-        })
-      });
-
-      const data = await res.json();
-      result.innerText = JSON.stringify(data);
+    if (collected.length === 10) {
+      register();
+      return;
     }
-  </script>
+  }
+
+  setTimeout(scanLoop, 700);
+}
+
+function updateUI() {
+  const percent = (collected.length / 10) * 100;
+  bar.style.width = percent + "%";
+  status.innerText = `${collected.length} / 10 수집`;
+}
+
+async function register() {
+  hint.innerText = "등록 중...";
+
+  const name = document.getElementById("name").value;
+
+  if (!name) {
+    alert("이름 입력하세요");
+    return;
+  }
+
+  const res = await fetch("https://jaewondev2.pythonanywhere.com/register", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({
+      name: name,
+      vectors: collected
+    })
+  });
+
+  const data = await res.json();
+
+  if (data.success) {
+    hint.innerText = "✅ 등록 완료!";
+    hint.classList.add("success");
+  } else {
+    hint.innerText = "❌ 등록 실패";
+  }
+}
+</script>
+
 </body>
 </html>
