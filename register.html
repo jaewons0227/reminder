@@ -108,6 +108,11 @@ const stages = [
   "조금 멀어지세요"
 ];
 
+const detectorOptions = new faceapi.TinyFaceDetectorOptions({
+  inputSize: 416,
+  scoreThreshold: 0.3
+});
+
 Promise.all([
   faceapi.nets.tinyFaceDetector.loadFromUri("./models"),
   faceapi.nets.faceLandmark68Net.loadFromUri("./models"),
@@ -124,7 +129,7 @@ async function scanLoop() {
   hint.innerText = stages[stage];
 
   const detection = await faceapi
-    .detectSingleFace(video,new faceapi.TinyFaceDetectorOptions())
+    .detectSingleFace(video, detectorOptions)
     .withFaceLandmarks()
     .withFaceDescriptor();
 
@@ -132,7 +137,6 @@ async function scanLoop() {
     if (collected.length < 10) {
       collected.push(Array.from(detection.descriptor));
       updateUI();
-
       stage = Math.floor(collected.length / 2);
     }
 
@@ -142,7 +146,7 @@ async function scanLoop() {
     }
   }
 
-  setTimeout(scanLoop, 700);
+  setTimeout(scanLoop, 1000);
 }
 
 function updateUI() {
